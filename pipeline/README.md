@@ -13,3 +13,17 @@
 
 - `prefect cloud login -k API_KEY`
 - `prefect cloud workspace set --workspace "Owner/Handle"`
+
+### Local
+
+- Prefect Cloud를 이용하고 싶지 않은 경우
+  - 위 cloud설정을 진행하였다면 `prefect config unset PREFECT_API_URL` 으로 삭제
+- `prefect orion start`
+
+#### Local2
+
+- Prefect Database를 변경하고 싶은 경우 (To PostgreSQL)
+  - `docker exec -it postgresql bash`
+  - `psql -U postgres`
+  - `create database prefect;`
+  - `prefect config set PREFECT_ORION_DATABASE_CONNECTION_URL="postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/prefect"`
