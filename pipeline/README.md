@@ -27,3 +27,9 @@
   - `psql -U postgres`
   - `create database prefect;`
   - `prefect config set PREFECT_ORION_DATABASE_CONNECTION_URL="postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/prefect"`
+
+## Task2 Pipeline Deployment
+
+- `python log_flow.py`
+- `python deployment.py`
+  - `prefect agent start --work-queue "test_queue"`
