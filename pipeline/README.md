@@ -30,6 +30,6 @@
 
 ## Task2 Pipeline Deployment
 
-- `python log_flow.py`
+- `python log_flow.py DWLEE  https://api.coindesk.com/v1/bpi/currentprice.json disclaimer`
 - `python deployment.py`
   - `prefect agent start --work-queue "test_queue"`

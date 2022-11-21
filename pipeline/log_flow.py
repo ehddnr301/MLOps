@@ -17,7 +17,6 @@ def log_task(name, logger):
 
 @task
 def req_url(url, key_name, logger):
-    logger = get_run_logger()
     logger.info(f"URL: {url}!")
     res = requests.get(url).json()
     try:
