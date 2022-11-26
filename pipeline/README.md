@@ -33,3 +33,8 @@
 - `python log_flow.py DWLEE  https://api.coindesk.com/v1/bpi/currentprice.json disclaimer`
 - `python deployment.py`
   - `prefect agent start --work-queue "test_queue"`
+
+## Task3 Model Training Pipeline
+
+- `python deployment.py`
+  - `prefect agent start --work-queue "train_stock_model_queue"`
