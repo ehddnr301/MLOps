@@ -96,6 +96,9 @@ def train_model_flow(train_df, valid_df, country_list, date):
 
 @flow
 def training_flow(date):
+    if date == "daily":
+        date = str((datetime.today() + timedelta(hours=9) - timedelta(days=30)).date())
+
     HOST_URL = Settings.POSTGRES_HOST
     TRAIN_QUERY = f"""
         SELECT * FROM stocktable WHERE "Date" < '{date}'
@@ -103,6 +106,7 @@ def training_flow(date):
     VALID_QUERY = f"""
         SELECT * FROM stocktable WHERE "Date" >= '{date}' 
     """
+
     COUNTRY_LIST = ["APPLE", "GOOGLE", "MICROSOFT", "AMAZON"]
     engine = create_db_engine(HOST_URL)
     train_df = read_data_from_database(TRAIN_QUERY, engine)
@@ -112,8 +116,5 @@ def training_flow(date):
 
 if __name__ == "__main__":
     date = sys.argv[1] if len(sys.argv) > 1 else "daily"
-
-    if date == "daily":
-        date = str((datetime.today() + timedelta(hours=9) - timedelta(days=30)).date())
 
     training_flow(date)
