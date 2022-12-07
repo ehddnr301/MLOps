@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import mlflow
 
 import pandas as pd
-from prefect import flow, task, get_run_logger
+from prefect import flow, task
 from sqlalchemy import create_engine
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
@@ -13,8 +13,6 @@ from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
 )
-
-from dotenv import load_dotenv
 
 from settings import Settings
 
@@ -66,8 +64,8 @@ def create_prediction_info(model, valid_X, valid_Y):
     pred = pd.Series(model.predict(valid_X))
     df = pd.concat([valid_Y, pred], axis=1, ignore_index=True)
     df.columns = ["TomorrowClosePrice", "PredictionResult"]
-    last_day_prediction = df["PredictionResult"].iloc[-1]
     df.dropna(inplace=True)
+
     msle = mean_squared_log_error(df["TomorrowClosePrice"], df["PredictionResult"])
     mae = mean_absolute_error(df["TomorrowClosePrice"], df["PredictionResult"])
     mse = mean_squared_error(df["TomorrowClosePrice"], df["PredictionResult"])
