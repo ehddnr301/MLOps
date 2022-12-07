@@ -2,6 +2,7 @@
 mkdir -p ~/minio/data
 
 docker run \
+   -d \
    --rm \
    -p 9000:9000 \
    -p 9090:9090 \
