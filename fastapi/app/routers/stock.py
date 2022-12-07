@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+import mlflow
 
+from fastapi import APIRouter
 from app.schemas.stock import StockInfo
+
+import numpy as np
 
 router = APIRouter(prefix="/stock")
 
@@ -13,4 +16,13 @@ def predict_stock_price(stock_info: StockInfo) -> float:
     Returns:
         float: 다음날 종가
     """
-    pass
+    MODEL_NAME = "stock"
+    MODEL_STAGE = "Production"
+
+    model_uri2 = f"models:/{MODEL_NAME}/{MODEL_STAGE}"
+
+    model = mlflow.sklearn.load_model(model_uri2)
+    data = np.reshape(np.array(list(stock_info.dict().values())), (1, -1))
+    res = model.predict(data)
+
+    return float(res[0])

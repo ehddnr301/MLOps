@@ -2,9 +2,13 @@ import uvicorn
 from fastapi import FastAPI
 from app.routers import stock
 
+from dotenv import load_dotenv
+
 app = FastAPI()
 
 app.include_router(stock.router)
+
+load_dotenv()
 
 
 @app.get("/")
