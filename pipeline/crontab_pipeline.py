@@ -2,7 +2,7 @@ import sys
 from datetime import datetime, timedelta
 
 import pandas as pd
-from prefect import flow, task, get_run_logger
+import logging
 from sqlalchemy import create_engine
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
@@ -17,13 +17,30 @@ import yfinance as yf
 from settings import Settings
 
 
-@task
+def set_logger():
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    file_handler = logging.FileHandler("my.log")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+logger = set_logger()
+
+
 def create_db_engine(HOST_URL):
     engine = create_engine(HOST_URL)
     return engine
 
 
-@task
 def extract_data(tech_list, company_list):
 
     end = datetime.now()
@@ -44,7 +61,6 @@ def extract_data(tech_list, company_list):
     return df
 
 
-@task
 def insert_data(engine, df: pd.DataFrame, table_name):
     df.to_sql(table_name, con=engine, if_exists="replace", index=False)
 
@@ -59,12 +75,10 @@ def insert_data(engine, df: pd.DataFrame, table_name):
     return True
 
 
-@task
 def read_data_from_database(query, engine):
     return pd.read_sql_query(query, con=engine)
 
 
-@task
 def preprocessing(train_df, valid_df, company):
     features = ["Open", "High", "Low", "Close", "Volume"]
     scaler = MinMaxScaler()
@@ -87,7 +101,6 @@ def preprocessing(train_df, valid_df, company):
     return train_X, train_Y, valid_X, valid_Y
 
 
-@task
 def train_model(train_X, train_Y):
     model = LinearRegression()
     model.fit(train_X, train_Y)
@@ -95,7 +108,6 @@ def train_model(train_X, train_Y):
     return model
 
 
-@task
 def create_prediction_info(model, valid_X, valid_Y):
     pred = pd.Series(model.predict(valid_X))
     df = pd.concat([valid_Y, pred], axis=1, ignore_index=True)
@@ -116,14 +128,11 @@ def create_prediction_info(model, valid_X, valid_Y):
     return info_dict
 
 
-@task
 def save_data(*args):
-    logger = get_run_logger()
     for arg in args:
         logger.info(arg)
 
 
-@flow
 def train_model_flow(train_df, valid_df, company_list, date):
     for company in company_list:
         train_X, train_Y, valid_X, valid_Y = preprocessing(train_df, valid_df, company)
@@ -132,7 +141,6 @@ def train_model_flow(train_df, valid_df, company_list, date):
         save_data(company, date, info_dict, train_X.shape, valid_X.shape)
 
 
-@flow
 def training_flow(date):
     if date == "daily":
         date = str((datetime.today() + timedelta(hours=9) - timedelta(days=30)).date())
@@ -152,7 +160,7 @@ def training_flow(date):
     engine = create_db_engine(HOST_URL)
     df = extract_data(TECH_LIST, COMPANY_LIST)
     c = insert_data(engine, df, TABLE_NAME)
-    train_df = read_data_from_database(TRAIN_QUERY, engine, wait_for=c)
+    train_df = read_data_from_database(TRAIN_QUERY, engine)
     valid_df = read_data_from_database(VALID_QUERY, engine)
     train_model_flow(train_df, valid_df, COMPANY_LIST, date)
 
