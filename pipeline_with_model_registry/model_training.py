@@ -16,6 +16,8 @@ from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
 )
+import yfinance as yf
+
 
 from settings import Settings
 
@@ -24,6 +26,34 @@ from settings import Settings
 def create_db_engine(HOST_URL):
     engine = create_engine(HOST_URL)
     return engine
+
+
+@task
+def extract_data(tech_list, company_list):
+
+    end = datetime.now()
+    start = datetime(end.year - 1, end.month, end.day)
+
+    temp_list = []
+    for stock in tech_list:
+        data = yf.download(stock, start, end)
+        temp_list.append(data)
+
+    for company, com_name in zip(temp_list, company_list):
+        company["company_name"] = com_name
+
+    df = pd.concat(temp_list, axis=0)
+
+    df = df.reset_index(drop=False)
+
+    return df
+
+
+@task
+def insert_data(engine, df: pd.DataFrame, table_name):
+    df.to_sql(table_name, con=engine, if_exists="replace", index=False)
+
+    return True
 
 
 @task
@@ -37,12 +67,12 @@ def get_data_list():
 
 
 @task
-def preprocessing(train_df, valid_df, country: str, date: str):
+def preprocessing(train_df, valid_df, company: str, date: str):
     features = ["Open", "High", "Low", "Close", "Volume"]
     scaler = MinMaxScaler()
 
-    train_df = train_df[train_df["company_name"] == country].copy().reset_index()
-    valid_df = valid_df[valid_df["company_name"] == country].copy().reset_index()
+    train_df = train_df[train_df["company_name"] == company].copy().reset_index()
+    valid_df = valid_df[valid_df["company_name"] == company].copy().reset_index()
 
     df = pd.concat([train_df, valid_df], axis=0, ignore_index=True)
     df["TomorrowClosePrice"] = df["Close"].shift(-1)
@@ -110,15 +140,15 @@ def log_info(logging_info):
 
 
 @flow(task_runner=SequentialTaskRunner())
-def train_model_flow(train_df, valid_df, country_list: list, date: str):
-    for country in country_list:
+def train_model_flow(train_df, valid_df, company_list: list, date: str):
+    for company in company_list:
         train_X, train_Y, valid_X, valid_Y, scaler = preprocessing(
-            train_df, valid_df, country, date
+            train_df, valid_df, company, date
         )
         model = train_model(train_X, train_Y)
         metric_dict = create_metric(model, valid_X, valid_Y)
 
-        params = {"country": country, "date": date}
+        params = {"company": company, "date": date}
         logging_info = {
             "params": params,
             "metrics": metric_dict,
@@ -135,19 +165,23 @@ def training_flow(date: str):
         date = str((datetime.today() + timedelta(hours=9) - timedelta(days=30)).date())
 
     HOST_URL = Settings.POSTGRES_HOST
+    TABLE_NAME = "stocktable"
     TRAIN_QUERY = f"""
-        SELECT * FROM stocktable WHERE "Date" < '{date}'
+        SELECT * FROM {TABLE_NAME} WHERE "Date" < '{date}'
     """
     VALID_QUERY = f"""
-        SELECT * FROM stocktable WHERE "Date" >= '{date}' 
+        SELECT * FROM {TABLE_NAME} WHERE "Date" >= '{date}' 
     """
 
-    COUNTRY_LIST = get_data_list() or ["APPLE", "GOOGLE", "MICROSOFT", "AMAZON"]
+    COMPANY_LIST = get_data_list() or ["APPLE", "GOOGLE", "MICROSOFT", "AMAZON"]
+    TECH_LIST = ["AAPL", "GOOG", "MSFT", "AMZN"]
 
     engine = create_db_engine(HOST_URL)
-    train_df = read_data_from_database(TRAIN_QUERY, engine)
+    df = extract_data(TECH_LIST, COMPANY_LIST)
+    c = insert_data(engine, df, TABLE_NAME)
+    train_df = read_data_from_database(TRAIN_QUERY, engine, wait_for=c)
     valid_df = read_data_from_database(VALID_QUERY, engine)
-    train_model_flow(train_df, valid_df, COUNTRY_LIST, date)
+    train_model_flow(train_df, valid_df, COMPANY_LIST, date)
 
 
 if __name__ == "__main__":
